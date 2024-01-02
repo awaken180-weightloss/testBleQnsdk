@@ -5,114 +5,107 @@
  * @format
  */
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useEffect} from 'react';
 import {
+  Button,
+  PermissionsAndroid,
+  Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
   View,
 } from 'react-native';
+import BleManager from 'react-native-ble-manager';
+import useYolandaDeviceListener from './src/yolanda-device-listener.hook';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+export const initBluetooth = async () => {
+  try {
+    await BleManager.start({showAlert: false});
+    console.info('[initBluetooth] BleManager start OK');
+  } catch (error) {
+    throw new Error('BleManager start failed.');
+  }
+};
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+export const handleAndroidBluetoothPermissions = async () => {
+  if (Platform.OS === 'android' && Platform.Version >= 31) {
+    try {
+      await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+      ]);
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+      console.info(
+        '[handleAndroidPermissions] User accepts runtime permissions android 12+',
+      );
+    } catch (error) {
+      console.error(
+        '[handleAndroidPermissions] User refuses runtime permissions android 12+',
+      );
+    }
+  } else if (Platform.OS === 'android' && Platform.Version >= 23) {
+    try {
+      const checkResult = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      );
+
+      if (checkResult) {
+        console.info(
+          '[handleAndroidPermissions] runtime permission Android <12 already OK',
+        );
+      } else {
+        try {
+          await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          );
+
+          console.info(
+            '[handleAndroidPermissions] User accepts runtime permission android <12',
+          );
+        } catch (error) {
+          console.error(
+            '[handleAndroidPermissions] User refuses runtime permission android <12',
+          );
+        }
+      }
+    } catch (error) {
+      console.error(
+        '[handleAndroidPermissions] User refuses runtime permission android <12',
+      );
+    }
+  }
+};
+
+// Init bluetooth and add listeners
+const handleBluetoothInit = async () => {
+  try {
+    await initBluetooth();
+    await handleAndroidBluetoothPermissions();
+  } catch (error) {
+    console.info('[handleBluetoothInit] Error', error);
+  }
+};
 
 function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+  const {status, onStartScaleScan, measurement, device} =
+    useYolandaDeviceListener();
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  console.log('measurement', measurement);
+  console.log('device', device);
+  console.log('status', status);
+
+  useEffect(() => {
+    handleBluetoothInit();
+  }, []);
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+    <SafeAreaView>
+      <ScrollView contentInsetAdjustmentBehavior="automatic">
+        <View>
+          <Button title="Start" onPress={onStartScaleScan} />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
 
 export default App;
