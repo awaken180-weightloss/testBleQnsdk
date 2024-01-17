@@ -112,6 +112,7 @@ const useYolandaDeviceListener = () => {
     const progressSubscription = QNSDKEmitter.addListener(
       'uploadProgress',
       (response: YolandaEventEmitter) => {
+        console.log('uploadProgress', response);
         notificationFilter(response);
       },
     );
